@@ -1,0 +1,31 @@
+# ============================================
+# OPDM FastAPI 服务 - Docker Compose 配置
+# ============================================
+# 配置说明：
+# 1. 环境变量通过 .env 文件自动加载（pydantic-settings）
+# 2. SQL Server 使用外部服务，需在 .env 中配置 DB_CONNECTION_STRING
+# 3. 支持代码热重载：修改代码后自动生效，无需重建镜像
+# ============================================
+version: '3.3'
+
+services:
+  my-service:
+    build:
+      context: ..
+      dockerfile: <your-service-dir>/Dockerfile
+    container_name: opdm-my-service
+    network_mode: host
+    volumes:
+      - ./app:/app/app:ro
+      - ./.env:/app/.env:ro
+      - ./scripts:/app/scripts:ro
+      - /data/<your-service-dir>:/app/data
+      - ../opdm_lib/auth:/app/local_deps/opdm_auth_client:ro
+    environment:
+      - WATCHFILES_FORCE_POLLING=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
