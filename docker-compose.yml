@@ -20,7 +20,7 @@ services:
       - ./.env:/app/.env:ro
       - ./scripts:/app/scripts:ro
       - /data/<your-service-dir>:/app/data
-      - ../opdm_lib/auth:/app/local_deps/opdm_auth_client:ro
+      - ../opdm_lib:/app/local_deps/opdm_lib:ro
     environment:
       - WATCHFILES_FORCE_POLLING=true
     restart: unless-stopped

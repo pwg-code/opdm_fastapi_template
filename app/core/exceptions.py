@@ -1,6 +1,6 @@
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from opdm_auth_client import (
+from opdm_lib.auth import (
     AuthError,
     BusinessError,
     business_error_handler,

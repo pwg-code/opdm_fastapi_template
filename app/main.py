@@ -16,6 +16,13 @@ from app.core.exceptions import (
     business_error_handler,
     auth_error_handler,
 )
+from opdm_lib.auth import (
+    AuthRedisConfig,
+    JwtConfig,
+    close_auth_redis,
+    init_auth_redis,
+    init_jwt_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +31,22 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info(f"正在启动 {settings.SERVICE_NAME}...")
+
+    # 初始化 JWT 配置（decode_token / get_current_user 依赖全局 JwtConfig）
+    init_jwt_config(
+        JwtConfig(
+            secret_key=settings.JWT_SECRET_KEY,
+            algorithm=settings.JWT_ALGORITHM,
+        )
+    )
+    logger.info("JwtConfig 已初始化")
+
+    # 初始化认证 Redis（get_current_user 从 auth:perm:{employee_id} 读权限）
+    try:
+        await init_auth_redis(AuthRedisConfig(redis_url=settings.REDIS_URL))
+        logger.info("认证 Redis 连接池已初始化")
+    except Exception as e:
+        logger.warning(f"认证 Redis 初始化失败（get_current_user 将不可用）: {e}")
 
     # 初始化数据库（开发环境自动建表，生产使用 Alembic）
     if settings.APP_ENV == "development":
@@ -35,6 +58,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # TODO: 在此添加关闭清理逻辑
+    await close_auth_redis()
     logger.info("服务已关闭")
 
 

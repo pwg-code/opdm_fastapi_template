@@ -41,13 +41,13 @@ FROM base as dependencies
 
 WORKDIR /app
 
-# 复制本地私有依赖包
-COPY opdm_lib/auth /app/local_deps/opdm_auth_client
+# 复制本地私有依赖包（整个 opdm_lib 项目，src 布局会自动安装所有子包）
+COPY opdm_lib /app/local_deps/opdm_lib
 
 # 安装项目依赖（注意：Dockerfile context 需指向 monorepo 根目录）
 COPY <your-service-dir>/pyproject.toml .
 RUN pip install --upgrade pip && \
-    pip install /app/local_deps/opdm_auth_client && \
+    pip install /app/local_deps/opdm_lib && \
     pip install -e ".[prod]" && \
     pip install watchfiles
 

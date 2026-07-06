@@ -1,4 +1,4 @@
-from opdm_auth_client import (
+from opdm_lib.auth import (
     get_current_user,
     TokenPayload,
     RequirePermission,

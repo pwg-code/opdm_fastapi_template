@@ -14,11 +14,18 @@ class Settings(BaseSettings):
     # ── 数据库 ──
     DB_CONNECTION_STRING: str = "sqlite+aiosqlite:///./data/app.db"
 
-    # ── 认证服务 ──
+# ── 认证服务 ──
     AUTH_SERVICE_URL: str = "http://localhost:8001"
 
-    # ── 服务间认证 ──
+    # ── 服务间认�?──
     SERVICE_TOKEN: str = ""
+
+    # ── JWT ──
+    JWT_SECRET_KEY: str = ""
+    JWT_ALGORITHM: str = "HS256"
+
+    # ── Redis ──
+    REDIS_URL: str = "redis://localhost:6379/1"
 
     # ── 日志 ──
     LOG_LEVEL: str = "INFO"

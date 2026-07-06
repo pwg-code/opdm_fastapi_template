@@ -17,6 +17,7 @@ dependencies = [
     "pydantic-settings>=2.0",
     "loguru>=0.7.0",
     "python-dotenv>=1.0.0",
+    "opdm-lib",
 ]
 
 [project.optional-dependencies]
@@ -41,4 +42,7 @@ testpaths = ["tests"]
 line-length = 120
 
 [tool.pyright]
-extraPaths = ["../opdm_lib/auth"]
+extraPaths = ["../opdm_lib/src"]
+
+[tool.uv.sources]
+opdm-lib = { path = "../opdm_lib", editable = true }
