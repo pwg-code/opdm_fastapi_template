@@ -3,9 +3,9 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "my-service"
+name = "{SERVICE_NAME}"
 version = "0.1.0"
-description = "OPDM FastAPI 服务"
+description = "OPDM FastAPI 服务（基于 opdm_fastapi_template）"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
@@ -29,6 +29,7 @@ dev = [
 prod = [
     "aioodbc>=0.5.0",
     "alembic>=1.13.0",
+    "gunicorn>=21.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -41,8 +42,8 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 120
 
-[tool.pyright]
-extraPaths = ["../opdm_lib/src"]
+[tool.ruff.lint.per-file-ignores]
+"app/main.py" = ["E402"]
 
 [tool.uv.sources]
 opdm-lib = { path = "../opdm_lib", editable = true }

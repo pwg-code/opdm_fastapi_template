@@ -13,8 +13,12 @@ build/
 venv/
 env/
 
-# Environment variables
+# ─────────────────────────────────────────────
+# 环境变量：禁止将真实 .env 提交到仓库
+# ─────────────────────────────────────────────
 .env
+.env.*
+!.env.example
 
 # IDE
 .idea/
@@ -34,7 +38,8 @@ htmlcov/
 *.db-wal
 data/
 
-# Logs
+# Working artifacts
+temp/
 *.log
 
 # Ruff

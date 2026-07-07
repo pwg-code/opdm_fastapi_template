@@ -1,31 +1,42 @@
 # ============================================
-# OPDM FastAPI 服务 - Docker Compose 配置
+# OPDM FastAPI 服务 — 生产模式 Docker Compose
 # ============================================
-# 配置说明：
-# 1. 环境变量通过 .env 文件自动加载（pydantic-settings）
-# 2. SQL Server 使用外部服务，需在 .env 中配置 DB_CONNECTION_STRING
-# 3. 支持代码热重载：修改代码后自动生效，无需重建镜像
+# 部署步骤：
+#   1. docker network create opdm-net            （仅首次需要）
+#   2. cp .env.example .env  并替换所有 <...> 占位符
+#   3. docker compose build
+#   4. docker compose up -d
+#   5. 宿主机 nginx 反向代理 443/80 → 127.0.0.1:${SERVICE_PORT}
+#
+# 占位符（首次构建前替换）：
+#   <SERVICE_NAME>    — 服务名（与 .env 中 SERVICE_NAME 一致）
+#   <SERVICE_DIR>     — 本服务在 monorepo 下的目录名
+#   <SERVICE_PORT>    — 服务监听端口
 # ============================================
-version: '3.3'
 
 services:
-  my-service:
+  <SERVICE_NAME>:
     build:
       context: ..
-      dockerfile: <your-service-dir>/Dockerfile
-    container_name: opdm-my-service
-    network_mode: host
+      dockerfile: <SERVICE_DIR>/Dockerfile
+    container_name: <SERVICE_NAME>
+    # 端口仅映射到宿主机本地回环（127.0.0.1），对外由宿主机 nginx 反代
+    ports:
+      - "127.0.0.1:<SERVICE_PORT>:<SERVICE_PORT>"
+    env_file:
+      - .env
     volumes:
-      - ./app:/app/app:ro
-      - ./.env:/app/.env:ro
       - ./scripts:/app/scripts:ro
-      - /data/<your-service-dir>:/app/data
-      - ../opdm_lib:/app/local_deps/opdm_lib:ro
-    environment:
-      - WATCHFILES_FORCE_POLLING=true
+      - /data/<SERVICE_DIR>:/app/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:<SERVICE_PORT>/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - opdm-net
+
+networks:
+  opdm-net:
+    external: true
