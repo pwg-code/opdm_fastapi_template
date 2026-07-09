@@ -53,6 +53,7 @@ COPY opdm_lib /app/local_deps/opdm_lib
 # 安装项目依赖
 COPY <SERVICE_DIR>/pyproject.toml .
 RUN pip install --upgrade pip \
+    && pip install --upgrade setuptools wheel \
     && pip install /app/local_deps/opdm_lib \
     && pip install --no-deps . \
     && pip install ".[prod]"
@@ -62,9 +63,9 @@ RUN pip install --upgrade pip \
 # ──────────────────────────────────────────────
 FROM base AS production
 
-RUN useradd -m -u 1000 appuser \
-    && mkdir -p /app/app /app/data \
-    && chown -R appuser:appuser /app
+RUN id -u appuser &>/dev/null || useradd -m -u 1000 -o appuser \
+    && mkdir -p /app/app /app/data /app/scripts \
+    && chown appuser:appuser /app
 
 COPY --from=dependencies /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=dependencies /usr/local/bin /usr/local/bin
