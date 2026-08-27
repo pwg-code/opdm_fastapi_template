@@ -58,6 +58,30 @@ class CrudRepo(Generic[T]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_by_field_excluding_id(
+        self, field_name: str, value: Any, exclude_id: int,
+    ) -> T | None:
+        """按单字段精确匹配查询并排除指定 ID（用于更新时唯一性冲突检测）"""
+        column = getattr(self.model, field_name, None)
+        if column is None:
+            raise BadRequestError(f"未知字段: {field_name}")
+        stmt = select(self.model).where(column == value, self.model.id != exclude_id) # type: ignore
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_by_composite_field_excluding_id(
+        self, fields: tuple[str, ...], values: dict[str, Any], exclude_id: int,
+    ) -> T | None:
+        """按多字段精确匹配查询并排除指定 ID（复合唯一约束冲突检测）"""
+        stmt = select(self.model).where(self.model.id != exclude_id) # type: ignore
+        for field_name in fields:
+            column = getattr(self.model, field_name, None)
+            if column is None:
+                raise BadRequestError(f"未知字段: {field_name}")
+            stmt = stmt.where(column == values[field_name])
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     # ── 条件 / 排序构建 ──────────────────────────────────────
 
     def _build_field_condition(self, fc: FieldCondition) -> Any:

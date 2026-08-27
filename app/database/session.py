@@ -1,14 +1,12 @@
 """数据库连接与会话管理 — 单库（主库）"""
 
-import logging
+from collections.abc import AsyncGenerator
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_engine_from_config
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_engine_from_config, async_sessionmaker
 
 from app.config import settings
-
-logger = logging.getLogger(__name__)
+from app.logging_setup import logger
 
 if settings.is_sqlite:
     engine = async_engine_from_config(
@@ -30,14 +28,14 @@ else:
         },
     )
 
-async_session_factory = sessionmaker(
-    engine,
+async_session_factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
+    bind=engine,
     class_=AsyncSession,
     expire_on_commit=False,
 )
 
 
-async def get_session() -> AsyncSession:
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI 依赖注入 — 提供数据库会话（自动 commit / rollback）"""
     async with async_session_factory() as session:
         try:
@@ -58,11 +56,13 @@ async def init_db() -> None:
             await conn.execute(text("PRAGMA busy_timeout=5000"))
             await conn.execute(text("PRAGMA foreign_keys=ON"))
         await conn.run_sync(SQLModel.metadata.create_all)
+    logger.info("db_tables_created", dialect="sqlite" if settings.is_sqlite else "mssql")
 
 
 async def dispose_engine() -> None:
     """应用关闭时释放连接池"""
     await engine.dispose()
+    logger.info("db_disposed")
 
 
 __all__ = [

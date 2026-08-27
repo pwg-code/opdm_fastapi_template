@@ -15,12 +15,11 @@
     register_constraint_message("tb_user", "email", "邮箱已被注册")
 """
 
-import logging
 import re
 
 from sqlalchemy.exc import IntegrityError
 
-logger = logging.getLogger(__name__)
+from app.logging_setup import logger
 
 # 默认约束消息（按计划 G6 保留为空字典，业务方按需注入）
 _DEFAULT_TABLE_CONSTRAINT_MESSAGES: dict[str, dict[str, str]] = {}
@@ -60,16 +59,16 @@ def _parse_integrity_error(error: IntegrityError) -> tuple[int, str]:
         if friendly_msg is not None:
             duplicate_value = match.group(0).split(": ", 1)[1] if ": " in match.group(0) else column_key
             return 409, f"{friendly_msg}: {duplicate_value}"
-        logger.warning("未配置的表约束: table=%s columns=%s", table_name, column_key)
+        logger.warning("未配置的表约束: table={} columns={}", table_name, column_key)
         return 409, f"数据冲突: {table_name}.{column_key}"
 
     mssql_match = _MSSQL_UNIQUE_RE.search(raw)
     if mssql_match:
         constraint_name = mssql_match.group(1)
-        logger.warning("未解析的 MSSQL 唯一约束: %s", constraint_name)
+        logger.warning("未解析的 MSSQL 唯一约束: {}", constraint_name)
         return 409, "数据冲突，违反唯一约束"
 
-    logger.warning("无法解析 IntegrityError: %s", raw)
+    logger.warning("无法解析 IntegrityError: {}", raw)
     return 409, "数据冲突"
 
 

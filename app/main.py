@@ -1,8 +1,5 @@
 from dotenv import load_dotenv
 
-load_dotenv()
-
-import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -10,16 +7,12 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from app.logging_setup import configure_logger, logger
 from opdm_lib.auth import close_auth, init_auth
 from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 
-# 配置 root logger，使 LOG_LEVEL 环境变量生效
-logging.basicConfig(
-    level=settings.LOG_LEVEL.upper(),
-    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-)
 
 from app.api import router as api_router
 from app.core.exceptions import (
@@ -35,8 +28,6 @@ from app.core.redis_client import close_redis_client, get_redis_client
 from app.database.session import dispose_engine, init_db
 from app.schemas.response import ApiResponse
 
-logger = logging.getLogger(__name__)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -49,7 +40,8 @@ async def lifespan(app: FastAPI):
 
     关闭顺序：业务 Redis → auth → DB 引擎。
     """
-    logger.info("正在启动 %s ...", settings.SERVICE_NAME)
+    configure_logger(level=settings.LOGGING_LEVEL, fmt=settings.LOGGING_FORMAT)
+    logger.info("app_started", service_name=settings.SERVICE_NAME)
 
     if settings.APP_ENV == "development":
         await init_db()
@@ -64,13 +56,12 @@ async def lifespan(app: FastAPI):
                 reloader_base_url=settings.AUTH_SERVICE_URL,
                 reloader_service_token=settings.SERVICE_TOKEN,
             )
-            logger.info("opdm_lib.auth 已初始化")
-        except Exception:
-            logger.warning(
-                "opdm_lib.auth 初始化失败（get_current_user 将不可用）", exc_info=True,
-            )
+            logger.info("auth_initialized")
+        except Exception as e:
+            logger.opt(exception=True).warning("auth_init_failed", error=str(e))
+
     else:
-        logger.info("REDIS_URL 未配置，跳过 opdm_lib.auth 初始化")
+        logger.info("auth_skipped", reason="REDIS_URL 未配置")
 
     await get_redis_client()
     yield
@@ -78,38 +69,46 @@ async def lifespan(app: FastAPI):
     await close_redis_client()
     await close_auth()
     await dispose_engine()
-    logger.info("服务已关闭")
+    logger.info("app_stopped", service_name=settings.SERVICE_NAME)
 
 
 def _json_error(status: int, code: int, message: str, data: Any = None) -> JSONResponse:
     """构造统一 ApiResponse 结构的错误响应"""
     return JSONResponse(
         status_code=status,
-        content=ApiResponse[Any].fail(code=code, message=message, data=data).model_dump(),
+        content=ApiResponse[Any]
+        .fail(code=code, message=message, data=data)
+        .model_dump(),
     )
 
 
-async def _business_error_handler(request: Request, exc: BusinessError) -> JSONResponse:
+async def _business_error_handler(request: Request, exc: Exception) -> JSONResponse:
     """业务异常 → ApiResponse.fail"""
+    if not isinstance(exc, BusinessError):
+        raise exc
     return _json_error(status=exc.code, code=exc.code, message=exc.message)
 
 
-async def _auth_error_handler(request: Request, exc: AuthError) -> JSONResponse:
+async def _auth_error_handler(request: Request, exc: Exception) -> JSONResponse:
     """认证异常 → 401 ApiResponse.fail"""
+    if not isinstance(exc, AuthError):
+        raise exc
     return _json_error(status=401, code=401, message=exc.message)
 
 
-async def _integrity_error_handler(request: Request, exc: IntegrityError) -> JSONResponse:
+async def _integrity_error_handler(request: Request, exc: Exception) -> JSONResponse:
     """IntegrityError → 解析后 ApiResponse.fail（默认 409）"""
+    if not isinstance(exc, IntegrityError):
+        raise exc
     logger.exception("IntegrityError: %s", exc)
     status, message = _parse_integrity_error(exc)
     return _json_error(status=status, code=status, message=message)
 
 
-async def _validation_error_handler(
-    request: Request, exc: RequestValidationError,
-) -> JSONResponse:
+async def _validation_error_handler(request: Request, exc: Exception) -> JSONResponse:
     """Pydantic 校验失败 → 400 ApiResponse.fail（data 携带原始错误详情）"""
+    if not isinstance(exc, RequestValidationError):
+        raise exc
     return _json_error(
         status=400,
         code=400,
@@ -173,8 +172,9 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
+        app,
+        host=settings.SERVICE_HOST,
         port=settings.SERVICE_PORT,
-        reload=settings.DEBUG,
+        log_level=settings.LOGGING_LEVEL.lower(),
+        access_log=settings.LOGGING_REQUEST_LOG,
     )

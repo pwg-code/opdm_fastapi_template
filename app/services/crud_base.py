@@ -8,15 +8,12 @@
 - 不绑定车间隔离、不绑定 EAV；这些是业务专属能力，按需派生
 """
 
-import logging
 from collections.abc import Sequence
 from typing import Any, Generic, TypeVar
 
 from app.core.exceptions import NotFoundError
-from app.repositories.crud_base import CrudRepo
+from app.reps.crud_base import CrudRepo
 from app.schemas.query import ConditionGroup, ListQuery
-
-logger = logging.getLogger(__name__)
 
 M = TypeVar("M")
 

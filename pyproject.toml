@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "{SERVICE_NAME}"
+name = "opdm-fastapi-template"
 version = "0.1.0"
 description = "OPDM FastAPI 服务（基于 opdm_fastapi_template）"
 requires-python = ">=3.11"
@@ -22,22 +22,15 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.23.0",
     "ruff>=0.5.0",
+    "pyright>=1.1.411",
 ]
 prod = [
     "aioodbc>=0.5.0",
-    "alembic>=1.13.0",
-    "gunicorn>=21.0",
 ]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 120

@@ -4,21 +4,21 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """应用配置 — 通过环境变量或 .env 文件加载
-
-    所有字符串字段默认值使用 ``{XXX}`` 占位符，开发者首次 clone 后需按
-    README「占位符替换清单」替换为实际值，或在 .env 中显式覆盖。
-    """
+    """应用配置 — 通过环境变量或 .env 文件加载"""
 
     # ── 服务信息 ──
-    SERVICE_NAME: str = "{SERVICE_NAME}"
+    SERVICE_NAME: str = "opdm-fastapi-template"
+    SERVICE_HOST: str = "0.0.0.0"
     SERVICE_PORT: int = 8000
-    SERVICE_WORKERS: int = 2
 
     # ── 运行环境 ──
     DEBUG: bool = False
     APP_ENV: str = "production"
-    LOG_LEVEL: str = "INFO"
+
+    # ── 日志 ──
+    LOGGING_LEVEL: str = "INFO"
+    LOGGING_FORMAT: str = "json"
+    LOGGING_REQUEST_LOG: bool = True
 
     # ── 数据库 ──
     DB_CONNECTION_STRING: str = "sqlite+aiosqlite:///./data/app.db"
@@ -29,9 +29,9 @@ class Settings(BaseSettings):
     REDIS_URL: str | None = None
 
     # ── 认证服务 ──
-    AUTH_SERVICE_URL: str = "http://{AUTH_SERVICE_HOST}:8001"
-    SERVICE_TOKEN: str = "{SERVICE_TOKEN}"
-    JWT_SECRET_KEY: str = "{JWT_SECRET_KEY}"
+    AUTH_SERVICE_URL: str = "http://localhost:8001"
+    SERVICE_TOKEN: str = "C6dT2oAt8LPhVZR0uLrw1-n1ICLQ6bPDUgMKzP2ecvU"
+    JWT_SECRET_KEY: str = "d4dbb39c-3241-11f0-a6d4-88aeddacf41a"
     JWT_ALGORITHM: str = "HS256"
 
     model_config = {

@@ -6,13 +6,11 @@
 """
 
 import asyncio
-import logging
 
 import redis.asyncio as redis
 
 from app.config import settings
-
-logger = logging.getLogger(__name__)
+from app.logging_setup import logger
 
 _client: redis.Redis | None = None
 _lock = asyncio.Lock()
@@ -43,8 +41,8 @@ async def get_redis_client() -> redis.Redis | None:
             await _client.ping()
             logger.info("Redis 客户端已建立连接")
         except Exception:
-            logger.warning(
-                "Redis 客户端初始化失败，业务调用将降级为 no-op", exc_info=True,
+            logger.opt(exception=True).warning(
+                "Redis 客户端初始化失败，业务调用将降级为 no-op",
             )
             _client = None
     return _client
@@ -57,7 +55,7 @@ async def close_redis_client() -> None:
         try:
             await _client.aclose()
         except Exception:
-            logger.warning("Redis 客户端关闭失败", exc_info=True)
+            logger.opt(exception=True).warning("Redis 客户端关闭失败")
         finally:
             _client = None
 
