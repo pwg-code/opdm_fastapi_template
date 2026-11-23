@@ -3,6 +3,8 @@
 # ============================================
 # 构建上下文：monorepo 根目录
 # 构建命令：  docker build -f <SERVICE_DIR>/Dockerfile -t <SERVICE_NAME>:latest .
+# 前置条件：需先构建 opdm-base 公共基础镜像（见 docker-base/README.md）：
+#   docker build -t opdm-base:py3.12-odbc18 docker-base/
 # 占位符（首次构建前替换）：
 #   <SERVICE_DIR>     — 本服务在 monorepo 下的目录名（如 opdm_label_server）
 #   <SERVICE_NAME>    — 服务名（与 .env 中 SERVICE_NAME 一致）
@@ -10,35 +12,11 @@
 # ============================================
 
 # ──────────────────────────────────────────────
-# 阶段 1：基础镜像 — 安装系统依赖与 ODBC 驱动
+# 阶段 1：基础镜像 — 复用 monorepo 公共基础镜像
 # ──────────────────────────────────────────────
-FROM python:3.12-slim AS base
-
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    TZ=Asia/Shanghai
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        gcc \
-        g++ \
-        curl \
-        gnupg \
-        unixodbc-dev \
-        tzdata \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* \
-    && curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
-    && curl https://packages.microsoft.com/config/debian/12/prod.list | tee /etc/apt/sources.list.d/mssql-release.list \
-    && apt-get update \
-    && ACCEPT_EULA=Y apt-get install -y --no-install-recommends \
-        msodbcsql18 \
-        mssql-tools18 \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* \
-    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
-    && echo $TZ > /etc/timezone
-
-ENV PATH="/opt/mssql-tools18/bin:${PATH}"
+# 基础镜像：python:3.12-slim + gcc/g++ + MS ODBC Driver 18（源码与构建说明见 docker-base/README.md）
+ARG BASE_IMAGE=opdm-base:py3.12-odbc18
+FROM ${BASE_IMAGE} AS base
 
 # ──────────────────────────────────────────────
 # 阶段 2：依赖安装
@@ -47,16 +25,20 @@ FROM base AS dependencies
 
 WORKDIR /app
 
-# 复制本地私有依赖（整个 opdm_lib 项目，src 布局自动安装所有子包）
-COPY opdm_lib /app/local_deps/opdm_lib
+# 复制本地私有依赖（路径须与 uv.lock 记录的 ../opdm_lib 相对路径一致）
+COPY opdm_lib /app/opdm_lib
 
-# 安装项目依赖
-COPY <SERVICE_DIR>/pyproject.toml .
-RUN pip install --upgrade pip \
-    && pip install --upgrade setuptools wheel \
-    && pip install /app/local_deps/opdm_lib \
-    && pip install --no-deps . \
-    && pip install ".[prod]"
+# 复制依赖清单（uv.lock 锁定全部第三方依赖版本，重建镜像不再隐性升级）
+COPY <SERVICE_DIR>/pyproject.toml <SERVICE_DIR>/uv.lock ./<SERVICE_DIR>/
+RUN pip install --upgrade pip uv \
+    && cd /app/<SERVICE_DIR> \
+    && UV_PROJECT_ENVIRONMENT=/usr/local UV_PYTHON_DOWNLOADS=never uv sync \
+       --locked --no-dev --extra prod --no-editable --no-install-project
+# --locked            lock 与 pyproject 不一致时构建失败，防止漏跑 uv lock 的静默漂移
+# --no-dev            跳过 dev 依赖
+# --extra prod        安装生产 extra（ODBC 等）
+# --no-editable       opdm_lib 以常规方式装入 site-packages（生产阶段无需源码）
+# --no-install-project 项目包由生产阶段 COPY 烤入，此处只装第三方依赖
 
 # ──────────────────────────────────────────────
 # 阶段 3：生产镜像 — 烤入应用代码
